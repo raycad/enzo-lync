@@ -29,8 +29,8 @@ II. Issues
 1. Enzo encoder can not encode frame buffer. FIXED (Josh added more BUFFER feature to encode data from buffer)
 
 2. Need more returned NAL information of bitstream (at least NAL count and NAL length of each NAL are MUST) after encode.
-+ VPU seems to use only one slice of each frame, therefore the NAL count is 1 and the NAL length is avcData->bufOutSize.
-+ Josh is investigating how to provide more information since support multiple NALs will make the performance better. WORKING
+2.1. VPU seems to use only one slice of each frame, therefore the NAL count is 1 and the NAL length is avcData->bufOutSize.
+2.2. Josh is investigating how to provide more information since support multiple NALs will make the performance better. WORKING
 
 3. Having problem in send/receive big packets on Enzo device. This causes the pixelated video issue. Don will reproduce and save data to a file later. CHECKING
 
