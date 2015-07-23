@@ -9,7 +9,7 @@
     PJMEDIA_HAS_ENZO_H264_CODEC == 1 && \
     defined(PJMEDIA_HAS_VIDEO) && (PJMEDIA_HAS_VIDEO != 0)
 
-#define ENZO_TEST_CAM 0
+#define ENZO_TEST_CAM 1
 #define ENZO_TEST_OPENH264 0
 #define ENZO_TEST_LINUX 0
 

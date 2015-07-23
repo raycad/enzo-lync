@@ -35,7 +35,7 @@
 #define MAX_TX_HEIGHT 800
 
 #define DEFAULT_BITRATE 1500
-#define DEFAULT_GOP_SIZE 1
+#define DEFAULT_GOP_SIZE 8
 
 #define DEFAULT_AVG_BITRATE 512000
 #define DEFAULT_MAX_BITRATE 1024000
@@ -443,7 +443,7 @@ static pj_status_t enzo_h264_alloc_codec(pjmedia_vid_codec_factory *factory,
     enzo_h264_data->usb_cam->width = DEFAULT_WIDTH;
     enzo_h264_data->usb_cam->height = DEFAULT_HEIGHT;
     enzo_h264_data->usb_cam->fps = DEFAULT_FPS;
-    strcpy(enzo_h264_data->usb_cam->deviceName,"/dev/video0");
+    strcpy(enzo_h264_data->usb_cam->deviceName,"/dev/video1");
 #endif
 #endif
 
@@ -977,11 +977,17 @@ static pj_status_t enzo_h264_codec_encode_begin(pjmedia_vid_codec *codec,
         return PJ_FAILED;
     }
 
+    // BEGIN TEST
+    int totalNalLength = 0;
+    for (int i = 0; i < avcData->nalInfo.nalNumber; i++) {
+        totalNalLength += avcData->nalInfo.nalLength[i];
+    }
+    // END TEST
     PJ_LOG(4, (THIS_FILE, "Enzo encode successful. Frame width = %d, frame height = %d, frame type = %d, "
-                          "nalNumber = %d, nalLength = %d, nalType = %d, avcData->bufOutSize = %d",
+                          "nalNumber = %d, nalType = %d, nalLength = %d, avcData->bufOutSize = %d",
                avcData->imageWidth, avcData->imageHeight,
                avcData->frameType, avcData->nalInfo.nalNumber,
-               avcData->nalInfo.nalLength, avcData->nalInfo.nalType, avcData->bufOutSize));
+               avcData->nalInfo.nalType, totalNalLength, avcData->bufOutSize));
 
 #if defined(PJMEDIA_SAVE_ENCODE_VIDEO_STREAM_TO_FILE) && (PJMEDIA_SAVE_ENCODE_VIDEO_STREAM_TO_FILE == 1)
     if (enzo_h264_data->encode_strm_file)
@@ -1143,13 +1149,15 @@ static pj_status_t enzo_h264_codec_encode_write_nals(pjmedia_vid_codec *codec,
 
     pj_uint8_t *p, *p_end, *q;
     int i, j, len;
-    int layer_number = 1;
+    int layer_number = 0;
 
 #if defined(ENZO_TEST_OPENH264) && (ENZO_TEST_OPENH264 == 1)
     SFrameBSInfo *bsi;
     SLayerBSInfo *lsi;
     bsi = &enzo_h264_data->bsi;
     layer_number = bsi->iLayerNum;
+#else
+    layer_number = 1;
 #endif
 
     p = buf + *buf_pos;
@@ -1167,16 +1175,19 @@ static pj_status_t enzo_h264_codec_encode_write_nals(pjmedia_vid_codec *codec,
             trap++;
         }
 
-        int nal_count = 1;
+        int nal_count = 0;
 #if defined(ENZO_TEST_OPENH264) && (ENZO_TEST_OPENH264 == 1)
         nal_count = lsi->iNalCount;
+#else
+        nal_count = avc_data->nalInfo.nalNumber;
 #endif
 
         for (j = 0; j < nal_count; ++j) {
 #if defined(ENZO_TEST_OPENH264) && (ENZO_TEST_OPENH264 == 1)
             len = lsi->pNalLengthInByte[j] - 4;
 #else
-            len = avc_data->bufOutSize - 4;
+            len = avc_data->nalInfo.nalLength[j] - 4;
+            //len = avc_data->bufOutSize - 4;
 #endif
             *p++ = (len >> 8) & 0xFF;
             *p++ = len & 0xFF;
@@ -1185,7 +1196,8 @@ static pj_status_t enzo_h264_codec_encode_write_nals(pjmedia_vid_codec *codec,
 #if defined(ENZO_TEST_OPENH264) && (ENZO_TEST_OPENH264 == 1)
             q += lsi->pNalLengthInByte[j];
 #else
-            q += avc_data->bufOutSize;
+            q += avc_data->nalInfo.nalLength[j];
+            //q += avc_data->bufOutSize;
 #endif
             p += len;
         }
@@ -1228,22 +1240,25 @@ static pj_status_t enzo_h264_codec_encode_write_pacsi(pjmedia_vid_codec *codec,
 
     /* Find number of NALs */
     num_nals = 0;
-    int i, j, layer_number = 1;
+    int i, j, layer_number = 0;
 
 #if defined(ENZO_TEST_OPENH264) && (ENZO_TEST_OPENH264 == 1)
     SFrameBSInfo *bsi;
     SLayerBSInfo *lsi;
     bsi = &enzo_h264_data->bsi;
     layer_number = bsi->iLayerNum;
+#else
+    layer_number = 1;
 #endif
 
     for (i = 0; i < layer_number; ++i) {
-        int nal_count = 1;
+        int nal_count = 0;
 #if defined(ENZO_TEST_OPENH264) && (ENZO_TEST_OPENH264 == 1)
         lsi = &bsi->sLayerInfo[i];
         nal_count = lsi->iNalCount;
         q = lsi->pBsBuf + 4;
 #else
+        nal_count = avc_data->nalInfo.nalNumber;
         q = avc_data->vBufOut + 4;
 #endif
         num_nals += nal_count;
@@ -1254,7 +1269,8 @@ static pj_status_t enzo_h264_codec_encode_write_pacsi(pjmedia_vid_codec *codec,
 #if defined(ENZO_TEST_OPENH264) && (ENZO_TEST_OPENH264 == 1)
             q += lsi->pNalLengthInByte[j];
 #else
-            q += avc_data->bufOutSize;
+            q += avc_data->nalInfo.nalLength[j];
+            //q += avc_data->bufOutSize;
 #endif
         }
 
@@ -1379,8 +1395,10 @@ static pj_status_t enzo_h264_codec_encode_write_pacsi(pjmedia_vid_codec *codec,
         pj_memcpy(p, &hdr, sizeof(hdr));
         p += sizeof(hdr);
         /* Write ref_frm_cnt */
-        if (pacsi_hdr.tid) rfc = enzo_h264_data->ref_frm_cnt;
-        else     rfc = ++enzo_h264_data->ref_frm_cnt;
+        if (pacsi_hdr.tid)
+            rfc = enzo_h264_data->ref_frm_cnt;
+        else
+            rfc = ++enzo_h264_data->ref_frm_cnt;
         *p++ = rfc;
         /* Write NAL count */
         *p++ = num_nals;
