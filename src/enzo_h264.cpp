@@ -26,7 +26,7 @@
 // #if defined(PJ_DARWINOS) && PJ_DARWINOS != 0 && TARGET_OS_IPHONE
 #define DEFAULT_WIDTH 640
 #define DEFAULT_HEIGHT 480
-#define DEFAULT_FPS 25
+#define DEFAULT_FPS 15
 
 #define MAX_RX_WIDTH 1200
 #define MAX_RX_HEIGHT 800
@@ -35,10 +35,10 @@
 #define MAX_TX_HEIGHT 800
 
 #define DEFAULT_BITRATE 1500
-#define DEFAULT_GOP_SIZE 8
+#define DEFAULT_GOP_SIZE 1
 
-#define DEFAULT_AVG_BITRATE 512000
-#define DEFAULT_MAX_BITRATE 1024000
+#define DEFAULT_AVG_BITRATE 1000
+#define DEFAULT_MAX_BITRATE 3200
 
 #define INVALID_PRID 0xFF
 
@@ -791,11 +791,12 @@ static pj_status_t enzo_h264_codec_modify(pjmedia_vid_codec *codec,
 
     PJ_ASSERT_RETURN(codec && param, PJ_EINVAL);
 
-#if defined(ENZO_TEST_OPENH264) && (ENZO_TEST_OPENH264 == 1)
     if (param->dir & PJMEDIA_DIR_ENCODING) {
-        struct enzo_h264_codec_data *enzo_h264_data = (enzo_h264_codec_data *)codec->codec_data;
         const pjmedia_format *fmt = &param->enc_fmt;
+
+#if defined(ENZO_TEST_OPENH264) && (ENZO_TEST_OPENH264 == 1)
         SEncParamExt eprm;
+        struct enzo_h264_codec_data *enzo_h264_data = (enzo_h264_codec_data *)codec->codec_data;
         int ret = enzo_h264_data->enc->GetOption(ENCODER_OPTION_SVC_ENCODE_PARAM_EXT, &eprm);
         if (ret) {
             PJ_LOG(4, (THIS_FILE, "enzo_h264_codec_modify: GetOption failed with code %d", ret));
@@ -835,8 +836,15 @@ static pj_status_t enzo_h264_codec_modify(pjmedia_vid_codec *codec,
         enzo_h264_data->enc_input_size = enzo_h264_data->esrc_pic->iPicWidth *
                 enzo_h264_data->esrc_pic->iPicHeight * 3 >> 1;
 
+#else
+        PJ_LOG(4, (THIS_FILE, "enzo_h264_codec_modify: Width = %d, Height = %d, TargetBitrate = %d, MaxBitrate = %d,"
+                              "MaxFrameRate = %d/%d",
+                   fmt->det.vid.size.w, fmt->det.vid.size.h, fmt->det.vid.avg_bps, fmt->det.vid.max_bps,
+                   fmt->det.vid.fps.num, fmt->det.vid.fps.denum));
+
         return PJ_SUCCESS;
     }
+
     return PJ_EINVALIDOP;
 #endif
 
@@ -1098,7 +1106,7 @@ static pj_status_t enzo_h264_codec_encode_more(pjmedia_vid_codec *codec,
 
         output->type = PJMEDIA_FRAME_TYPE_VIDEO;
         *has_more = (enzo_h264_data->enc_processed < enzo_h264_data->enc_frame_size) /*||
-                                                                                                                                                                                                       (enzo_h264_data->ilayer < enzo_h264_data->bsi.iLayerNum)*/;
+                                                                                                                                                                                                               (enzo_h264_data->ilayer < enzo_h264_data->bsi.iLayerNum)*/;
         return PJ_SUCCESS;
     }
 
