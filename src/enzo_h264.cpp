@@ -443,7 +443,7 @@ static pj_status_t enzo_h264_alloc_codec(pjmedia_vid_codec_factory *factory,
     enzo_h264_data->usb_cam->width = DEFAULT_WIDTH;
     enzo_h264_data->usb_cam->height = DEFAULT_HEIGHT;
     enzo_h264_data->usb_cam->fps = DEFAULT_FPS;
-    strcpy(enzo_h264_data->usb_cam->deviceName,"/dev/video1");
+    strcpy(enzo_h264_data->usb_cam->deviceName,"/dev/video0");
 #endif
 #endif
 
@@ -1446,6 +1446,8 @@ static pj_status_t enzo_h264_codec_decode(pjmedia_vid_codec *codec,
     PJ_ASSERT_RETURN(codec && count && packets && out_size && output,
                      PJ_EINVAL);
     PJ_ASSERT_RETURN(output->buf, PJ_EINVAL);
+
+    PJ_LOG(4, (THIS_FILE, "Start enzo_h264_codec_decode..."));
 
     enzo_h264_data = (enzo_h264_codec_data*)codec->codec_data;
     layer_prid = enzo_h264_data->decoded_prid[0];
