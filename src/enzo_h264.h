@@ -38,24 +38,32 @@ typedef struct enzo_h264_codec_data
     unsigned enc_input_size;
 #endif
 
+    /*
+     * Encoder parameters
+     * */
     struct encoderInstance *avc_enc;
-    struct decoderInstance *avc_dec;
-
-#if defined(ENZO_TEST_CAM) && (ENZO_TEST_CAM == 1)
-    struct decoderInstance *mjpg_dec;
-    struct cameraInstance *usb_cam;
-#endif
+    char enc_sps_header[ENZO_SPS_SIZE];
+    char enc_pps_header[ENZO_PPS_SIZE];
     pj_uint8_t *enc_buf;
     unsigned enc_buf_size;
     unsigned enc_buf_len;
     unsigned enc_frame_size;
     unsigned enc_processed;
-    unsigned fua_processed;
 
+    /*
+     * Decoder parameters
+     * */
+    struct decoderInstance *avc_dec;
     pj_uint8_t *dec_buf;
     unsigned dec_buf_size;
     unsigned dec_buf_len;
 
+#if defined(ENZO_TEST_CAM) && (ENZO_TEST_CAM == 1)
+    struct decoderInstance *mjpg_dec;
+    struct cameraInstance *usb_cam;
+#endif
+
+    unsigned fua_processed;
     pj_uint8_t ref_frm_cnt;
     pj_uint16_t donc;
 
