@@ -9,8 +9,8 @@
     PJMEDIA_HAS_ENZO_H264_CODEC == 1 && \
     defined(PJMEDIA_HAS_VIDEO) && (PJMEDIA_HAS_VIDEO != 0)
 
-#define ENZO_TEST_CAM 1
-#define ENZO_TEST_OPENH264 0
+#define ENZO_TEST_CAM 0
+#define ENZO_TEST_OPENH264 1
 #define ENZO_TEST_LINUX 0
 
 #if defined(ENZO_TEST_LINUX) && (ENZO_TEST_LINUX == 1)
@@ -42,8 +42,11 @@ typedef struct enzo_h264_codec_data
      * Encoder parameters
      * */
     struct encoderInstance *avc_enc;
+#if defined(ENZO_TEST_LINUX) && (ENZO_TEST_LINUX == 1)
+#else
     char enc_sps_header[ENZO_SPS_SIZE];
     char enc_pps_header[ENZO_PPS_SIZE];
+#endif
     pj_uint8_t *enc_buf;
     unsigned enc_buf_size;
     unsigned enc_buf_len;

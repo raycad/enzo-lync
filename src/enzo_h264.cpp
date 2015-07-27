@@ -37,8 +37,8 @@
 #define DEFAULT_BITRATE 1500
 #define DEFAULT_GOP_SIZE 1
 
-#define DEFAULT_AVG_BITRATE 1000
-#define DEFAULT_MAX_BITRATE 3200
+#define DEFAULT_AVG_BITRATE 512000
+#define DEFAULT_MAX_BITRATE 1024000
 
 #define INVALID_PRID 0xFF
 
@@ -48,11 +48,16 @@
 #define COUNTER_INTERVAL 20
 static pj_time_val start_encoded_timer = {0};
 static pj_int32_t encoded_frames_counter = 0;
+static pj_bool_t start_encoding = false;
+
+#if defined(ENZO_TEST_LINUX) && (ENZO_TEST_LINUX == 1)
+#else
 static pj_time_val start_decoded_timer = {0};
 static pj_int32_t decoded_frames_counter = 0;
 static pj_int32_t lost_decoded_frames_counter = 0;
-static pj_bool_t start_encoding = false;
 static pj_bool_t start_decoding = false;
+#endif
+
 #endif
 
 typedef struct enzo_h264_vid_res {
@@ -317,15 +322,19 @@ static pj_status_t enzo_h264_default_attr(pjmedia_vid_codec_factory *factory,
     attr->packing = PJMEDIA_VID_PACKING_PACKETS;  /* For RTP transmission */
 
     /* Encoded format */
-#if defined(ENZO_TEST_OPENH264) && (ENZO_TEST_OPENH264 == 1)
     pjmedia_format_init_video(&attr->enc_fmt, PJMEDIA_FORMAT_H264,
                               avai_vid_res[0].width, avai_vid_res[0].height,
             avai_vid_res[0].fps.num, avai_vid_res[0].fps.denum);
-#else
-    pjmedia_format_init_video(&attr->enc_fmt, PJMEDIA_FORMAT_H264,
-                              DEFAULT_WIDTH, DEFAULT_HEIGHT,
-                              DEFAULT_FPS, 1);
-#endif
+
+    //#if defined(ENZO_TEST_OPENH264) && (ENZO_TEST_OPENH264 == 1)
+    //    pjmedia_format_init_video(&attr->enc_fmt, PJMEDIA_FORMAT_H264,
+    //                              avai_vid_res[0].width, avai_vid_res[0].height,
+    //            avai_vid_res[0].fps.num, avai_vid_res[0].fps.denum);
+    //#else
+    //    pjmedia_format_init_video(&attr->enc_fmt, PJMEDIA_FORMAT_H264,
+    //                              DEFAULT_WIDTH, DEFAULT_HEIGHT,
+    //                              DEFAULT_FPS, 1);
+    //#endif
 
     /* Decoded format */
     pjmedia_format_init_video(&attr->dec_fmt, PJMEDIA_FORMAT_I420,
@@ -339,13 +348,16 @@ static pj_status_t enzo_h264_default_attr(pjmedia_vid_codec_factory *factory,
     attr->dec_fmtp.param[1].name = pj_str((char*)"mst-mode");
     attr->dec_fmtp.param[1].val = pj_str((char*)"NI-TC");
 
-#if defined(ENZO_TEST_OPENH264) && (ENZO_TEST_OPENH264 == 1)
     attr->enc_fmt.det.vid.avg_bps = (avai_vid_res[0].min_br + avai_vid_res[0].max_br) / 2;
     attr->enc_fmt.det.vid.max_bps = avai_vid_res[0].max_br;
-#else
-    attr->enc_fmt.det.vid.avg_bps = DEFAULT_AVG_BITRATE;
-    attr->enc_fmt.det.vid.max_bps = DEFAULT_MAX_BITRATE;
-#endif
+
+    //#if defined(ENZO_TEST_OPENH264) && (ENZO_TEST_OPENH264 == 1)
+    //    attr->enc_fmt.det.vid.avg_bps = (avai_vid_res[0].min_br + avai_vid_res[0].max_br) / 2;
+    //    attr->enc_fmt.det.vid.max_bps = avai_vid_res[0].max_br;
+    //#else
+    //    attr->enc_fmt.det.vid.avg_bps = DEFAULT_AVG_BITRATE;
+    //    attr->enc_fmt.det.vid.max_bps = DEFAULT_MAX_BITRATE;
+    //#endif
 
     /* Encoding MTU */
     attr->enc_mtu = PJMEDIA_MAX_VID_PAYLOAD_SIZE;
@@ -555,13 +567,13 @@ static pj_status_t enzo_h264_codec_init(pjmedia_vid_codec *codec,
 
     /* The mediaBuffer returned from H264 init contains the SPS and PPS
                headers. They are of fixed size, so we can extract them easily */
-    memcpy(enzo_h264_data->enc_sps_header, avcData->vBufOut, ENZO_SPS_SIZE);
-    memcpy(enzo_h264_data->enc_pps_header, avcData->vBufOut + ENZO_SPS_SIZE, ENZO_PPS_SIZE);
-    /* Write AVC SPS and PPS headers to output file */
-    if (enzo_h264_data->encode_strm_file) {
-        fwrite(enzo_h264_data->enc_sps_header, ENZO_SPS_SIZE, 1, enzo_h264_data->encode_strm_file);
-        fwrite(enzo_h264_data->enc_pps_header, ENZO_PPS_SIZE, 1, enzo_h264_data->encode_strm_file);
-    }
+    //    memcpy(enzo_h264_data->enc_sps_header, avcData->vBufOut, ENZO_SPS_SIZE);
+    //    memcpy(enzo_h264_data->enc_pps_header, avcData->vBufOut + ENZO_SPS_SIZE, ENZO_PPS_SIZE);
+    //    /* Write AVC SPS and PPS headers to output file */
+    //    if (enzo_h264_data->encode_strm_file) {
+    //        fwrite(enzo_h264_data->enc_sps_header, ENZO_SPS_SIZE, 1, enzo_h264_data->encode_strm_file);
+    //        fwrite(enzo_h264_data->enc_pps_header, ENZO_PPS_SIZE, 1, enzo_h264_data->encode_strm_file);
+    //    }
 #endif
 
     ret = decoderInit(enzo_h264_data->avc_dec, avcData);
@@ -769,7 +781,10 @@ static pj_status_t enzo_h264_codec_open(pjmedia_vid_codec *codec,
 #endif
 
     start_encoding = true;
+#if defined(ENZO_TEST_LINUX) && (ENZO_TEST_LINUX == 1)
+#else
     start_decoding = true;
+#endif
 
     return PJ_SUCCESS;
 }
@@ -791,7 +806,10 @@ static pj_status_t enzo_h264_codec_close(pjmedia_vid_codec *codec)
 #endif
 
     start_encoding = false;
+#if defined(ENZO_TEST_LINUX) && (ENZO_TEST_LINUX == 1)
+#else
     start_decoding = false;
+#endif
 
     return PJ_SUCCESS;
 }
@@ -853,14 +871,11 @@ static pj_status_t enzo_h264_codec_modify(pjmedia_vid_codec *codec,
                               "MaxFrameRate = %d/%d",
                    fmt->det.vid.size.w, fmt->det.vid.size.h, fmt->det.vid.avg_bps, fmt->det.vid.max_bps,
                    fmt->det.vid.fps.num, fmt->det.vid.fps.denum));
-
+#endif
         return PJ_SUCCESS;
     }
 
     return PJ_EINVALIDOP;
-#endif
-
-    return PJ_SUCCESS;
 }
 
 static pj_status_t enzo_h264_codec_get_param(pjmedia_vid_codec *codec,
@@ -915,11 +930,13 @@ static pj_status_t enzo_h264_codec_encode_begin(pjmedia_vid_codec *codec,
              enzo_h264_data->esrc_pic->iPicHeight >> 2);
 
     pj_memset (&enzo_h264_data->bsi, 0, sizeof (SFrameBSInfo));
-    int rc = enzo_h264_data->enc->EncodeFrame( enzo_h264_data->esrc_pic, &enzo_h264_data->bsi);
+    int rc = enzo_h264_data->enc->EncodeFrame(enzo_h264_data->esrc_pic, &enzo_h264_data->bsi);
     if (rc != cmResultSuccess) {
         PJ_LOG(4, (THIS_FILE, "EncodeFrame() error, ret: %d", rc));
         return PJMEDIA_CODEC_EFAILED;
     }
+
+    PJ_LOG(4, (THIS_FILE, "Encoded frame size = %d", enzo_h264_data->bsi.iFrameSizeInBytes));
 
     if (enzo_h264_data->bsi.eFrameType == videoFrameTypeSkip ||
             enzo_h264_data->bsi.eFrameType == videoFrameTypeInvalid) {
@@ -937,10 +954,34 @@ static pj_status_t enzo_h264_codec_encode_begin(pjmedia_vid_codec *codec,
     buf_size = enzo_h264_data->enc_buf_size;
     buf_pos = 0;
 
+#if defined(ENZO_TEST_LINUX) && (ENZO_TEST_LINUX == 1)
+    enzo_h264_codec_encode_write_pacsi(codec, buf, buf_size, &buf_pos, &output->bit_info);
+    enzo_h264_codec_encode_write_nals(codec, buf, buf_size, &buf_pos);
+#else
     enzo_h264_codec_encode_write_pacsi(codec, NULL, buf, buf_size, &buf_pos, &output->bit_info);
     enzo_h264_codec_encode_write_nals(codec, NULL, buf, buf_size, &buf_pos);
+#endif
 
     enzo_h264_data->enc_buf_len = buf_pos;
+
+#if defined(PJMEDIA_SAVE_ENCODE_VIDEO_STREAM_TO_FILE) && (PJMEDIA_SAVE_ENCODE_VIDEO_STREAM_TO_FILE == 1)
+    if (enzo_h264_data->encode_strm_file) {
+        SFrameBSInfo *bsi = &enzo_h264_data->bsi;
+        for (int i = 0; i < bsi->iLayerNum; ++i) {
+            int totalNalLength = 0;
+            SLayerBSInfo *lsi = NULL;
+            lsi = &bsi->sLayerInfo[i];
+            for (int j = 0; j < lsi->iNalCount; ++j) {
+                totalNalLength += lsi->pNalLengthInByte[j];
+            }
+
+            fwrite(lsi->pBsBuf, totalNalLength, 1, enzo_h264_data->encode_strm_file);
+
+            PJ_LOG(4, (THIS_FILE, "NAL information of the layer %d: TotalNalLength = %d, FrameSizeInBytes = %d",
+                       i, totalNalLength, bsi->iFrameSizeInBytes));
+        }
+    }
+#endif
 #else
 
     int ret = 0;
@@ -967,6 +1008,8 @@ static pj_status_t enzo_h264_codec_encode_begin(pjmedia_vid_codec *codec,
         return PJ_FAILED;
     }
 
+    PJ_LOG(4, (THIS_FILE, "cameraGetFrame. MJPG frame size = %d", camData->bufOutSize));
+
     /* Convert MJPG data to YUV data */
     ret = decoderDecodeFrame(enzo_h264_data->mjpg_dec, camData, yuvData);
     if (ret < 0) {
@@ -991,6 +1034,8 @@ static pj_status_t enzo_h264_codec_encode_begin(pjmedia_vid_codec *codec,
     yuvData->colorSpace = YUV420P;
 #endif
 
+    PJ_LOG(4, (THIS_FILE, "cameraGetFrame. YUV frame size = %d", yuvData->bufOutSize));
+
     /* Encode frame */
     ret = encoderEncodeFrame(enzo_h264_data->avc_enc, yuvData, avcData);
     if (ret < 0) {
@@ -1006,7 +1051,7 @@ static pj_status_t enzo_h264_codec_encode_begin(pjmedia_vid_codec *codec,
     // END TEST
     PJ_LOG(4, (THIS_FILE, "Enzo encode successful. Frame width = %d, frame height = %d, frame type = %d, "
                           "nalNumber = %d, nalType = %d, nalLength = %d, avcData->bufOutSize = %d",
-               avcData->imageWidth, avcData->imageHeight,
+               avcData->width, avcData->height,
                avcData->frameType, avcData->nalInfo.nalNumber,
                avcData->nalInfo.nalType, totalNalLength, avcData->bufOutSize));
 
@@ -1119,7 +1164,7 @@ static pj_status_t enzo_h264_codec_encode_more(pjmedia_vid_codec *codec,
 
         output->type = PJMEDIA_FRAME_TYPE_VIDEO;
         *has_more = (enzo_h264_data->enc_processed < enzo_h264_data->enc_frame_size) /*||
-                                                                                                                                                                                                                                                                                       (enzo_h264_data->ilayer < enzo_h264_data->bsi.iLayerNum)*/;
+                                                                                                                                                                                                                                                                                                               (enzo_h264_data->ilayer < enzo_h264_data->bsi.iLayerNum)*/;
         return PJ_SUCCESS;
     }
 
@@ -1165,8 +1210,11 @@ static pj_status_t enzo_h264_codec_encode_write_nals(pjmedia_vid_codec *codec,
                                                      unsigned buf_size,
                                                      unsigned *buf_pos)
 {
+#if defined(ENZO_TEST_LINUX) && (ENZO_TEST_LINUX == 1)
+#else
     if (!avc_data)
         return PJ_FAILED;
+#endif
 
     struct enzo_h264_codec_data *enzo_h264_data;
     enzo_h264_data = (struct enzo_h264_codec_data *)codec->codec_data;
@@ -1253,8 +1301,11 @@ static pj_status_t enzo_h264_codec_encode_write_pacsi(pjmedia_vid_codec *codec,
                                                       unsigned *buf_pos,
                                                       unsigned *bit_flags)
 {
+#if defined(ENZO_TEST_LINUX) && (ENZO_TEST_LINUX == 1)
+#else
     if (!avc_data)
         return PJ_FAILED;
+#endif
 
     struct enzo_h264_codec_data *enzo_h264_data;
     enzo_h264_data = (struct enzo_h264_codec_data *)codec->codec_data;
@@ -1497,7 +1548,7 @@ static pj_status_t enzo_h264_codec_decode(pjmedia_vid_codec *codec,
                      PJ_EINVAL);
     PJ_ASSERT_RETURN(output->buf, PJ_EINVAL);
 
-    PJ_LOG(4, (THIS_FILE, "Start enzo_h264_codec_decode..."));
+    PJ_LOG(4, (THIS_FILE, "Start enzo_h264_codec_decode... Frame size = %d", out_size));
 
     enzo_h264_data = (enzo_h264_codec_data*)codec->codec_data;
     layer_prid = enzo_h264_data->decoded_prid[0];
