@@ -1586,10 +1586,10 @@ static pj_status_t enzo_h264_codec_encode_write_pacsi(pjmedia_vid_codec *codec,
 
 static int write_yuv(pj_uint8_t *buf,
                      unsigned dst_len,
-                     unsigned char* pData[3],
-int iStride[2],
-int iWidth,
-int iHeight)
+                     unsigned char *pData[3],
+int stride[2],
+int width,
+int height)
 {
     unsigned req_size;
     pj_uint8_t *dst = buf;
@@ -1597,41 +1597,41 @@ int iHeight)
     int i;
     unsigned char *pPtr = NULL;
 
-    req_size = (iWidth * iHeight) + (iWidth / 2 * iHeight / 2) +
-            (iWidth / 2 * iHeight / 2);
+    req_size = (width * height) + (width / 2 * height / 2) +
+            (width / 2 * height / 2);
     if (dst_len < req_size)
         return -1;
 
     pPtr = pData[0];
-    for (i = 0; i < iHeight && (dst + iWidth < max); i++) {
-        pj_memcpy(dst, pPtr, iWidth);
-        pPtr += iStride[0];
-        dst += iWidth;
+    for (i = 0; i < height && (dst + width < max); i++) {
+        pj_memcpy(dst, pPtr, width);
+        pPtr += stride[0];
+        dst += width;
     }
 
-    if (i < iHeight)
+    if (i < height)
         return -1;
 
-    iHeight = iHeight / 2;
-    iWidth = iWidth / 2;
+    height = height / 2;
+    width = width / 2;
     pPtr = pData[1];
-    for (i = 0; i < iHeight && (dst + iWidth <= max); i++) {
-        pj_memcpy(dst, pPtr, iWidth);
-        pPtr += iStride[1];
-        dst += iWidth;
+    for (i = 0; i < height && (dst + width <= max); i++) {
+        pj_memcpy(dst, pPtr, width);
+        pPtr += stride[1];
+        dst += width;
     }
 
-    if (i < iHeight)
+    if (i < height)
         return -1;
 
     pPtr = pData[2];
-    for (i = 0; i < iHeight && (dst + iWidth <= max); i++) {
-        pj_memcpy(dst, pPtr, iWidth);
-        pPtr += iStride[1];
-        dst += iWidth;
+    for (i = 0; i < height && (dst + width <= max); i++) {
+        pj_memcpy(dst, pPtr, width);
+        pPtr += stride[1];
+        dst += width;
     }
 
-    if (i < iHeight)
+    if (i < height)
         return -1;
 
     return dst - buf;
@@ -1644,25 +1644,27 @@ static pj_status_t enzo_h264_got_decoded_frame(pjmedia_vid_codec *codec,
                                                unsigned out_size,
                                                pjmedia_frame *output)
 {
-    pj_uint8_t* pDst[3] = {NULL};
+    PJ_LOG(4, (THIS_FILE, "enzo_h264_got_decoded_frame: withxheight = %dx%d, imageWidthximageHeight = %dx%d",
+               yuv_data->width, yuv_data->height, yuv_data->imageWidth, yuv_data->imageHeight));
 
+    int width = yuv_data->width;
+    int height = yuv_data->height;
+
+    pj_uint8_t* pDst[3] = {NULL};
     pDst[0] = (pj_uint8_t *)yuv_data->vBufOut;
-    pDst[1] = (pj_uint8_t *)(pDst[0] + yuv_data->width * yuv_data->height);
-    pDst[2] = (pj_uint8_t *)(pDst[1] + pj_uint8_t(0.25 * yuv_data->width * yuv_data->height));
+    pDst[1] = (pj_uint8_t *)(pDst[0] + width * height);
+    pDst[2] = (pj_uint8_t *)(pDst[1] + pj_uint8_t(0.25 * width * height));
 
     if (!pDst[0] || !pDst[1] || !pDst[2]) {
         return PJ_SUCCESS;
     }
 
-    int iStride[2];
-    int iWidth = yuv_data->width;
-    int iHeight = yuv_data->height;
-
-    iStride[0] = iWidth;
-    iStride[1] = iWidth/2;
+    int stride[2];
+    stride[0] = width;
+    stride[1] = stride[0]/2;
 
     int len = write_yuv((pj_uint8_t *)output->buf, out_size,
-                        pDst, iStride, iWidth, iHeight);
+                        pDst, stride, width, height);
     if (len > 0) {
         output->timestamp = *timestamp;
         output->size = len;
@@ -1674,17 +1676,17 @@ static pj_status_t enzo_h264_got_decoded_frame(pjmedia_vid_codec *codec,
     }
 
     /* Detect format change */
-    if (iWidth != (int)enzo_h264_data->prm->dec_fmt.det.vid.size.w ||
-            iHeight != (int)enzo_h264_data->prm->dec_fmt.det.vid.size.h) {
+    if (width != (int)enzo_h264_data->prm->dec_fmt.det.vid.size.w ||
+            height != (int)enzo_h264_data->prm->dec_fmt.det.vid.size.h) {
         pjmedia_event event;
 
         PJ_LOG(3, (THIS_FILE, "Frame size changed: %dx%d --> %dx%d",
                    enzo_h264_data->prm->dec_fmt.det.vid.size.w,
                    enzo_h264_data->prm->dec_fmt.det.vid.size.h,
-                   iWidth, iHeight));
+                   width, height));
 
-        enzo_h264_data->prm->dec_fmt.det.vid.size.w = iWidth;
-        enzo_h264_data->prm->dec_fmt.det.vid.size.h = iHeight;
+        enzo_h264_data->prm->dec_fmt.det.vid.size.w = width;
+        enzo_h264_data->prm->dec_fmt.det.vid.size.h = height;
 
         /* Broadcast format changed event */
         pjmedia_event_init(&event, PJMEDIA_EVENT_FMT_CHANGED,
@@ -1902,11 +1904,11 @@ static pj_status_t enzo_h264_codec_decode(pjmedia_vid_codec *codec,
             status = enzo_h264_got_decoded_frame(codec, enzo_h264_data, yuvData, &packets[0].timestamp,
                     out_size, output);
 
-            output->timestamp = packets[0].timestamp;
-            output->size = yuvData->bufOutSize;
-            output->type = PJMEDIA_FRAME_TYPE_VIDEO;
-            output->buf = yuvData->vBufOut;
-            has_frame = PJ_TRUE;
+//            output->timestamp = packets[0].timestamp;
+//            output->size = yuvData->bufOutSize;
+//            output->type = PJMEDIA_FRAME_TYPE_VIDEO;
+//            output->buf = yuvData->vBufOut;
+            has_frame = (status == PJ_SUCCESS && output->size != 0);
         }
         PJ_LOG(4, (THIS_FILE, "Enzo decode successfully. yuvData->bufOutSize = %d", yuvData->bufOutSize));
     } else {
