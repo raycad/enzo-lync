@@ -85,6 +85,10 @@ typedef struct enzo_h264_codec_data
 #if defined(PJMEDIA_SAVE_DECODE_VIDEO_STREAM_TO_FILE) && (PJMEDIA_SAVE_DECODE_VIDEO_STREAM_TO_FILE == 1)
     FILE *decode_strm_file;
 #endif
+
+#if defined(PJMEDIA_SAVE_DECODED_YUV_VIDEO_TO_FILE) && (PJMEDIA_SAVE_DECODED_YUV_VIDEO_TO_FILE == 1)
+    FILE *received_yuv_video_file;
+#endif
 } enzo_h264_codec_data;
 
 /**
